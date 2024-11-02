@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,17 +29,18 @@ export default function Component() {
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState([]);
   const [dbData, setDbData] = useState([]);
+  const fileInputRef = useRef(null); // Referencia al campo de archivo
 
   // Función para convertir texto a formato "Proper Case"
   const toProperCase = (str) => {
     if (!str) return ""; // Manejar el caso de texto vacío o undefined
     return str
-      .split(" ") // Separar el texto en palabras
+      .split(" ")
       .map((word) => {
-        if (word.length === 0) return ""; // Evitar errores con palabras vacías
-        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(); // Capitalizar la primera letra y poner en minúsculas el resto
+        if (word.length === 0) return "";
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
       })
-      .join(" "); // Volver a unir las palabras en un solo string
+      .join(" ");
   };
 
   // Función para procesar el archivo Excel
@@ -52,7 +53,6 @@ export default function Component() {
         await workbook.xlsx.load(buffer);
         const worksheet = workbook.getWorksheet(1); // Obtener la primera hoja
 
-        // Verifica si el worksheet está definido
         if (!worksheet) {
           throw new Error("No se encontró la hoja de cálculo.");
         }
@@ -62,8 +62,8 @@ export default function Component() {
           if (rowNumber > 1) {
             const rowData = {
               id: row.getCell(1)?.value,
-              nombres: toProperCase(row.getCell(2)?.value), // Aplicar la función
-              apellidos: toProperCase(row.getCell(3)?.value), // Aplicar la función
+              nombres: toProperCase(row.getCell(2)?.value),
+              apellidos: toProperCase(row.getCell(3)?.value),
               codigo_area: row.getCell(4)?.value,
               celular: row.getCell(5)?.value,
               mensaje: row.getCell(6)?.value,
@@ -72,10 +72,23 @@ export default function Component() {
           }
         });
 
+        const formatDate = (date) => {
+          const d = new Date(date);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0"); // Mes de 2 dígitos
+          const day = String(d.getDate()).padStart(2, "0"); // Día de 2 dígitos
+          const hours = String(d.getHours()).padStart(2, "0"); // Horas de 2 dígitos
+          const minutes = String(d.getMinutes()).padStart(2, "0"); // Minutos de 2 dígitos
+          const seconds = String(d.getSeconds()).padStart(2, "0"); // Segundos de 2 dígitos
+
+          return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`; // Formato: YYYY-MM-DD HH:MM:SS
+        };
+
         // Concatenar nombres y apellidos en un solo campo "nombre"
         const processedData = data.map((row) => ({
           ...row,
           nombre: `${row.nombres} ${row.apellidos}`,
+          fecha_envio: formatDate(new Date()),
         }));
 
         console.log("Datos del Excel:", processedData);
@@ -86,9 +99,7 @@ export default function Component() {
         );
       } catch (error) {
         console.error("Error al procesar el archivo:", error);
-        toast.error(
-          "No hay datos para subir. Por favor, selecciona un archivo Excel primero."
-        );
+        toast.error("No hay datos para subir. Selecciona un archivo Excel.");
       } finally {
         setLoading(false);
       }
@@ -108,9 +119,7 @@ export default function Component() {
 
   const handleUpload = async () => {
     if (previewData.length === 0) {
-      toast.error(
-        "No hay datos para subir. Por favor, selecciona un archivo Excel primero."
-      );
+      toast.error("No hay datos para subir. Selecciona un archivo Excel.");
       return;
     }
 
@@ -118,13 +127,16 @@ export default function Component() {
     toast.info("Subiendo datos...");
 
     try {
-      // Aquí se realiza la solicitud POST para enviar los datos
       const response = await axios.post("/api/upload", {
         data: dbData,
       });
 
       if (response.status === 200) {
         toast.success("Datos subidos exitosamente a la base de datos.");
+        setFile(null);
+        setPreviewData([]);
+        setDbData([]);
+        if (fileInputRef.current) fileInputRef.current.value = ""; // Limpiar el campo de archivo
       } else {
         toast.error("Hubo un problema al subir los datos.");
       }
@@ -139,7 +151,7 @@ export default function Component() {
   return (
     <>
       <Toaster richColors position="top-center" />
-      <Card className="w-full max-w-4xl mx-auto my-10">
+      <Card className="w-full max-w-4xl mx-auto">
         <CardHeader>
           <CardTitle>Carga de Archivo Excel</CardTitle>
           <CardDescription>
@@ -156,6 +168,7 @@ export default function Component() {
                 accept=".xlsx, .xls"
                 onChange={handleFileChange}
                 disabled={loading}
+                ref={fileInputRef} // Referencia al input
               />
             </div>
           </div>

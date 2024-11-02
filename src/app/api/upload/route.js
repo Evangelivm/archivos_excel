@@ -13,21 +13,25 @@ export async function POST(request) {
       );
     }
 
-    // Preparar los valores para la consulta SQL
-    const values = data.map(({ nombre, codigo_area, celular, mensaje }) => [
-      nombre,
-      codigo_area,
-      celular,
-      mensaje,
-    ]);
+    // Preparar los valores para la consulta SQL, incluyendo `fecha_envio`
+    const values = data.map(
+      ({ nombre, codigo_area, celular, mensaje, fecha_envio }) => [
+        nombre,
+        codigo_area,
+        celular,
+        mensaje,
+        fecha_envio, // Agregar fecha_envio proporcionada desde el cliente
+      ]
+    );
 
     // Crear la consulta SQL para la inserción masiva
     const query = `
-      INSERT INTO clientes_copy1 (
+      INSERT INTO clientes (
         nombre,
         codigo_area,
         telefono,
-        mensaje
+        mensaje,
+        fecha_envio
       ) 
       VALUES ?
     `;
